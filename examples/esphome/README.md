@@ -1,148 +1,29 @@
-# ESPHome configuration
+# ESPHome example
 
-- copy this file [WeatherStationSensor.h](WeatherStationSensor.h) to yourESPHome project folder.
-- copy & paste the below example into ESPHome. Change it by your configuration.
+The [example YAML](weather-station.yaml) loads `weather_station` directly from
+this repository's `components` directory. It targets an ESP32 `nodemcu-32s` and
+requires the Arduino framework. No `esphome.libraries`, `includes`, custom sensor
+lambda, or second repository is required.
 
-The application need to know wind_station_id / rain_station_id. We can switch it to scan mode (set wind_station_id=0 and
-rain_station_id=0). After that we can check logs and when we find sensor records with real values, take sensor ID and
-save it to wind_station_id / rain_station_id.
+Create `secrets.yaml` beside the example using `secrets.example.yaml` as a template.
+Replace the sample Wi-Fi, API and OTA values before uploading to a real device.
+From the repository root:
 
-```yaml
-substitutions:
-  patform: "esp32"
-  board: "nodemcu-32s" 
-  device_name: weatherstation
-  comment: "Meteostation"
-  ip: "192.168.1.21"
-  station_pin: "27"   # GPIO
-  wind_station_id: "0"  # 0 = scan all available sensors (we can check it in logs). When we find our wind sensor, set its ID instead "0" 
-  rain_station_id: "0"  # 0 = scan all available sensors (we can check it in logs). When we find our rain sensor, set its ID instead "0" 
-
-
-esphome:
-  name: '${device_name}'
-  comment: '${comment}'
-  platform: '${patform}'
-  board: "${board}"
-  libraries:
-    - https://github.com/Zwer2k/WeatherStationDataRx.git@0.5.0
-  includes:
-    - WeatherStationSensor.h
-
-# Enable logging
-logger:
-#  level: DEBUG #VERY_VERBOSE
-
-ota:
-  password: "123456789123456789"
-
-wifi:
-  use_address: "${ip}"
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: "Weather-Station Fallback Hotspot"
-    password: "ZFPdpx2JP4O8"
-
-mqtt:
-  broker: 192.168.1.1
-  username: mqtt_user
-  password: !secret mqtt_password  
-
-
-sensor:
-  - platform: custom
-    lambda: |-
-      WeatherSensor *ws = new WeatherSensor(${station_pin}, ${wind_station_id}, ${rain_station_id});
-      App.register_component(ws);
-      return {
-        ws->temperature,
-        ws->humidity,
-        ws->wind_speed,
-        ws->wind_direction,
-        ws->wind_gust,
-        ws->rain_volume,
-        ws->battery_wind_station,
-        ws->battery_rain_station
-      };      
-    sensors:
-      - name: "${device_name} Temperature"
-        id: "${device_name}_temperature"
-        device_class: TEMPERATURE
-        state_class: measurement
-        unit_of_measurement: "°C"
-        accuracy_decimals: 2
-        force_update: true
-        filters:
-          - quantile:
-              quantile: .25
-
-      - name: "${device_name} Humidity"
-        id: "${device_name}_humidity"
-        device_class: HUMIDITY
-        state_class: measurement
-        unit_of_measurement: "%"
-        accuracy_decimals: 2
-        force_update: true
-        filters:
-          - quantile:
-              quantile: .25
-
-      - name: "${device_name} Wind Speed"
-        id: "${device_name}_wind_speed"
-        device_class: WIND_SPEED
-        state_class: measurement
-        unit_of_measurement: m/s
-        accuracy_decimals: 2
-        force_update: true
-
-
-      - name: "${device_name} Wind Direction"
-        id: "${device_name}_wind_direction"
-        state_class: measurement
-        unit_of_measurement: °
-        accuracy_decimals: 0
-        force_update: true
-
-
-      - name: "${device_name} Wind Gust"
-        id: "${device_name}_wind_gust"
-        device_class: WIND_SPEED
-        state_class: measurement
-        unit_of_measurement: m/s
-        accuracy_decimals: 2
-        force_update: true
-
-
-      - name: "${device_name} Rain volume"
-        id: "${device_name}_rain_volume"
-        device_class: WATER
-        state_class: total_increasing
-        unit_of_measurement: L
-        accuracy_decimals: 2
-        force_update: true
-        filters:
-          - quantile:
-              send_first_at: 3
-              quantile: .0025
-
-
-      - name: "${device_name} Battery wind station"
-        id: "${device_name}_battery_wind_station"
-        device_class: BATTERY
-        state_class: measurement
-        unit_of_measurement: "%"
-        accuracy_decimals: 0
-        force_update: false
-
-      - name: "${device_name} Battery rain station"
-        id: "${device_name}_battery_rain_station"
-        device_class: BATTERY
-        state_class: measurement
-        unit_of_measurement: "%"
-        accuracy_decimals: 0
-        force_update: false
-
+```sh
+esphome config examples/esphome/weather-station.yaml
+esphome compile examples/esphome/weather-station.yaml
 ```
+
+Both station IDs are initially 0. This enables scan-only logging and deliberately
+publishes no measurements. Use the logs to identify the wind/temperature/humidity
+transmitter and the rain transmitter, then set their IDs in the YAML and rebuild.
+IDs may change after battery replacement. Other temperature sensors can be in
+range; choose the IDs of your own weather station rather than accepting every ID.
+
+All eight readings are optional. The component supplies their units, device
+classes, state classes and display precision. Filters and other standard ESPHome
+sensor options can be added to each nested reading.
+
+When using a configuration outside this repository, adjust `external_components`
+to point to the repository's `components` directory, or use its Git source after
+the component has been published. See the [main README](../../README.md).
